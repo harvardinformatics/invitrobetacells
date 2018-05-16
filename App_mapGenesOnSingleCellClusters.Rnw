@@ -1,0 +1,422 @@
+\documentclass[a4paper]{article}
+\usepackage{Sweave}
+\begin{document}
+
+\title{}
+\author{}
+
+\maketitle
+
+<<label=libraries, echo=FALSE, eval=TRUE>>=
+require(scater)
+require(SIMLR)
+require(igraph)
+require(reshape)
+
+@ 
+<<label=functions, echo=FALSE, eval=TRUE>>=
+getScores <- function(nc, set) { # nset --> lset
+    # nc: part of name of simlr obj: for nsetn136c.simlr, use 'n136'
+    # set: SCESet that was used with SIMLR
+    # commandline example for nsetH5007c and nsetH500: ggplotDimRed('H5007', nsetH500)
+    #simlrobjname <- paste('lset', nc, 'c', '.simlr', sep='')
+    setname <- deparse(substitute(set))
+    simlrobjname <- paste(setname, nc, 'c', '.simlr', sep='')
+    simlrobj <- get(simlrobjname)
+
+    x.df <- as.data.frame(simlrobj$ydata)
+    rownames(x.df) <- sampleNames(set)
+    colnames(x.df) <- c('Comp1', 'Comp2')
+    x.df <- data.frame(x.df, stage=set$stage)
+    
+    return(x.df)
+}
+
+
+ggplotStagesOnSIMLRclusters <- function(obj, set) {
+    rownames(obj$ydata) <- sampleNames(set)
+    a <- as.data.frame(obj$ydata)
+    colnames(a) <- c('Comp1', 'Comp2')
+    a <- namerows(a, col.name='Stage')
+    a$Stage <- sapply(a$Stage, function(x) {
+        ifelse(grepl('stage',x), unlist(strsplit(x, split='_'))[1], unlist(strsplit(sub('_', '.', x), split='_'))[1])
+    })
+    a$Stage <- as.character(sub('stage|St', '', a$Stage))
+
+    p <- ggplot(a, aes(Comp1, Comp2))
+    p <- p + geom_point(aes(colour=Stage, shape=Stage), size=2.5, alpha=1)
+    p <- p + guides(colour=guide_legend(override.aes=list(size=3)))
+    p <- p + labs(title=substitute(paste(italic('Developmental '), 'Stages On Clusters')))
+    p <- p + theme(legend.title = element_text(, colour='blue'), legend.position='right', plot.title=element_blank())
+    p <- p + scale_colour_manual(values=c('#00BFFF', 'orange', 'yellow', 'purple', 'purple', '#2E8B57', '#2E8B57', '#DC143C', '#DC143C','#DC143C'))
+    p <- p + scale_shape_manual(values=c(rep(16, 3), 16, 2, 16, 2, 16, 2, 4))
+    
+    return(p)
+}
+
+
+getGeneExpr <- function(df, set, gns) {
+    # df: output from getScores() with additional column: namerows(df, 'Samplenames'); e.g., aa.df
+    # set: nset
+    # gns: vector of genes or single gene name
+    # returns a data.frame
+    ens <- mget(gns, sym2ens, ifnotfound=NA)
+    ens <- as.character(unlist(ens))
+    if (all(is.na(ens))) stop('Please, Use Symbols!')
+    ens <- paste(ens, collapse='|')
+
+    #df <- as.data.frame(t(exprs(nset[grep(ens, featureNames(nset)), ])))
+    df <- as.data.frame(t(exprs(set[grep(ens, featureNames(set)), ])))
+    colnames(df) <- gns
+    
+    return(df)
+}
+
+
+mergeScoresAndGeneExpr <- function(cnum, set, gns) {
+    # df: gexprelxx.df, eg., gexprH7.m
+    # cnum: eg., H7, H8 etc
+    # set: nset, original set
+    # gns: single gene symbol
+    a.df <- getScores(cnum, nsetH) # from nsetH7.simlr, nsetH8.simlr etc
+    aa.df <- namerows(a.df, 'Samplenames')
+    
+    testing <- FALSE # using ensembl ids    
+    if (testing) {
+        df <- getGeneIdExpr(aa.df, set, gns)
+        cnms <- colnames(df)
+        cnms <- paste(cnms, collapse='|')
+        annot.df <- fData(set)[grep(cnms, rownames(fData(set))), 3:4]
+        idx <- match(colnames(df), substring(rownames(annot.df), 1, 15))
+        sym <- as.character(annot.df[idx, ]$gene_short_name)
+        colnames(df) <- sym
+    } else {
+        gns <- toupper(gns)
+        df <- getGeneExpr(aa.df, set, gns)    
+    }
+    df <- namerows(df, 'Samplenames')
+    mdf <- merge(aa.df, df, by='Samplenames')
+    
+    return(mdf)
+}
+
+# D092019
+ggplotGenesOnCells_v0 <- function(df, gene, cn) { # 414, same 664 with diff title
+    # cn cluster number: 7, 8, 9 etc
+    gx <- which(colnames(df) == gene)
+    val <- quantile(df[, gx], 0.99)
+    
+    xdf <- df[, c('Comp1', 'Comp2', gene)]
+    gn <- sub('-|\\.', '', colnames(xdf)[3])
+    colnames(xdf)[3] <- gn
+
+    p <- ggplot(xdf, aes(Comp1, Comp2))
+    #p <- p + geom_point(aes_string(colour=gene), size=3, alpha=1) + scale_colour_gradient(low = "grey70", high = "red", name='FPKM')
+    #p <- p + geom_point(aes_string(colour=gene), size=3, alpha=1) + scale_colour_gradient(low = 'yellow', high = '#DC143C', name='FPKM')
+    p <- p + geom_point(aes_string(colour=gn), size=3, alpha=1)
+    p <- p + scale_colour_gradient2(low='white', mid='#990000', high ='black', midpoint=val, name='FPKM\n(log2)')
+    p <- p + labs(title=substitute(paste(italic('In vitro '), 'Developmental Stages')))
+    p <- p + theme(legend.title = element_text(color='blue', size=7), legend.position='right', plot.title=element_text(hjust=0.5, , face='bold', size=20))
+
+    return(p)
+}
+
+ggplotGenesOnCells <- function(df, gene, cn, title) { # 414, same 664 with diff title
+    colfunc<-colorRampPalette(c("white","yellow","red","black"))
+
+    gx <- which(colnames(df) == gene)
+    val <- quantile(df[, gx], 0.99)
+    
+    xdf <- df[, c('Comp1', 'Comp2', gene)]
+    gn <- sub('-|\\.', '', colnames(xdf)[3])
+    colnames(xdf)[3] <- gn
+
+    p <- ggplot(xdf, aes(Comp1, Comp2))
+    #p <- p + geom_point(aes_string(colour=gene), size=3, alpha=1) + scale_colour_gradient(low = "grey70", high = "red", name='FPKM')
+    #p <- p + geom_point(aes_string(colour=gene), size=3, alpha=1) + scale_colour_gradient(low = 'yellow', high = '#DC143C', name='FPKM')
+    p <- p + geom_point(aes_string(colour=gn), size=3, alpha=1)
+    p <- p + scale_colour_gradientn(colours=colfunc(100), name=title)
+    p <- p + labs(title=substitute(paste(italic('In vitro '), 'Developmental Stages')))
+    p <- p + theme(legend.title = element_text(color='blue', size=7), legend.position='right', plot.title=element_text(hjust=0.5, , face='bold', size=20))
+
+    return(p)
+}
+
+getScores_VclustB <- function(set, sobj) { # nset --> lset
+    # obj: simlr object, e.g., bsetH or nsetH
+    x.df <- as.data.frame(sobj$ydata)
+    rownames(x.df) <- sampleNames(set)
+    colnames(x.df) <- c('Comp1', 'Comp2')
+    x.df <- data.frame(x.df, stage=set$stage)
+    
+    return(x.df)
+}
+
+getEPscores <- function(usg, ep) {
+    # ep: is a number, the number for the expression profile
+    # usg: EP usage, data.frame acep.df
+    idx <- grep(paste0('_', ep, '$'), colnames(usg))
+    df <- usg[, idx, drop=FALSE]
+    df <- namerows(df, 'Samplenames')
+    
+    return(df)
+}
+
+#mergeScoresAndGeneExpr_vEP<- function(cnum, set, ep, obj) {
+mergeScoresAndGeneExpr_vEP <- function(set, obj, usg, ep) {
+    # ep: is a number, the number for the expression profile
+    # usg: EP usage, data.frame acep.df
+    a.df <- getScores_VclustB(set, obj) # nsetH is default to get the old clusters!!
+    aa.df <- namerows(a.df, 'Samplenames')
+    
+    df <- getEPscores(usg, ep)    
+    df <- namerows(df, 'Samplenames')
+
+    mdf <- merge(aa.df, df, by='Samplenames')
+    
+    return(mdf)
+}
+
+ggplotGenesOnCells_v0EP<- function(df, gene, cn) { # 414, same 664 with diff title
+    # cn cluster number: 7, 8, 9 etc
+    gx <- which(colnames(df) == gene)
+    val <- quantile(df[, gx], 0.99)
+    
+    xdf <- df[, c('Comp1', 'Comp2', gene)]
+    gn <- sub('-|\\.', '', colnames(xdf)[3])
+    colnames(xdf)[3] <- gn
+    
+    p <- ggplot(df, aes(Comp1, Comp2))
+    #p <- p + geom_point(aes(colour=PAX6, size=stage), stat='identity', position='identity', size=0.8, alpha=0.5)
+    #p <- p + geom_point(aes_string(colour=gene), size=0.9, alpha=1) + scale_colour_gradient(low = "grey70", high = "red", name='FPKM')
+    p <- p + geom_point(aes_string(colour=gene), size=3, alpha=1)
+    p <- p + scale_colour_gradient2(low = "white", mid='red', high = "black", midpoint=val, name='Scores')
+    p <- p + labs(title=paste(gene, 'On', cn, 'Clusters'))
+    #p <- p + theme(legend.title = element_blank(), legend.position='right', plot.title=element_text(hjust=0.5))
+    p <- p + theme(legend.title=element_text(colour='blue', size=9), legend.position='right', plot.title=element_text(hjust=0.5))
+    
+    return(p)
+}
+
+ggplotGenesOnCells_vEP<- function(df, gene, cn, pointsize=3) { # 414, same 664 with diff title
+    # cn cluster number: 7, 8, 9 etc
+    gx <- which(colnames(df) == gene)
+    val <- quantile(df[, gx], 0.99)
+    
+    xdf <- df[, c('Comp1', 'Comp2', gene)]
+    gn <- sub('-|\\.', '', colnames(xdf)[3])
+    colnames(xdf)[3] <- gn
+    
+    p <- ggplot(df, aes(Comp1, Comp2))
+    #p <- p + geom_point(aes(colour=PAX6, size=stage), stat='identity', position='identity', size=0.8, alpha=0.5)
+    #p <- p + geom_point(aes_string(colour=gene), size=0.9, alpha=1) + scale_colour_gradient(low = "grey70", high = "red", name='FPKM')
+    p <- p + geom_point(aes_string(colour=gene), size=pointsize, alpha=1)
+    p <- p + scale_colour_gradient2(low = "white", mid='red', high = "black", midpoint=val, name='Scores')
+    p <- p + labs(title=paste(gene, 'On', cn, 'Clusters'))
+    #p <- p + theme(legend.title = element_blank(), legend.position='right', plot.title=element_text(hjust=0.5))
+    p <- p + theme(legend.title=element_text(colour='blue', size=9), legend.position='right', plot.title=element_text(hjust=0.5))
+    
+    return(p)
+}
+
+# D112117
+ggplotMultEPonSIMLRclusters <- function(set, obj, ep.df, pointsize, ...) {
+    ## set: nset
+    ## obj: nsetH10c.simlr
+    ## ep: is a number, the number for the expression profile
+    ## ep.df: acep.df (usage), uses all
+    ## ...: names of EPs, e.g., EP_1, EP_2, etc, exact name
+    selMaxEp <- function(epvect) {
+        # returns a data.frame of single column of EPs with max score in cell
+        # epvect: list of EPs, ... arguments of ggplotMultEPOnSIMLRclusters
+        z <- as.data.frame(ep.df[epvect])
+        
+        if (ncol(z) == 1) {
+            res <- z[[1]]
+            res <- ifelse(res == 0.0, 'None', epvect[1])
+            names(res) <- rownames(z)
+            res <- as.data.frame(res)
+        } else {
+            res <- apply(z, 1, function(x, ev) {
+                a <- max(x)
+                sel <- ev[which(a == x)]
+                if (length(sel) == length(ev)) sel <- 'None'
+                return(sel)
+            }, epvect)
+            res <- as.data.frame(unlist(res))
+        }
+        colnames(res) <- 'maxEP'
+        
+        return(res)
+    }
+    getScores <- function(set, sobj) { # nset --> lset
+        ## modified getScores_VclustB(), see above
+        ## obj: simlr object, e.g., bsetH or nsetH
+        x.df <- as.data.frame(sobj$ydata)
+        rownames(x.df) <- sampleNames(set)
+        colnames(x.df) <- c('Comp1', 'Comp2')
+    
+        return(x.df)
+    }
+    mergeWithEPs <- function(set, sobj, edf) {
+        # set: nset
+        # obj: nsetH10c.simlr
+        # edf: returned from selMaxEP()
+        adf <- getScores(set, sobj)
+        adf <- namerows(adf, 'Samplenames')
+        bdf <- namerows(edf, 'Samplenames')
+        mres <- merge(adf, bdf, by='Samplenames')
+    
+        return(mres)
+    }
+    usecolors <- c('#00BFFF', 'orange', 'yellow', 'purple', '#2E8B57', '#DC143C')
+    usecolors <- c(usecolors, '#FF00FF', '#6A5ACD', '#87CEFA', '#00FFFF', '#7FFFD4', '#F5F5DC', '#DAA520', '#DEB887', '#8B4513',
+                   '#FF7F50', '#800000', '#000000')
+    ## Fuchsia, SlateBlue, LightSkyBlue, Cyan, Aquamarine, Beige, Goldenrod, BurlyWood, SaddleBrown, Coral, Maroon, Black
+
+    pointsize <- as.numeric(pointsize)
+    ep <- unlist(list(...))
+    df <- selMaxEp(ep)
+    finalep <- unique(df$maxEP)
+    mdf <- mergeWithEPs(set, obj, df)
+         
+    p <- ggplot(mdf, aes(Comp1, Comp2)) + geom_point(aes(colour=maxEP), size=pointsize)
+    #p <- p + guides(colour=guide_legend(override.aes=list(size=3)))
+    p <- p + scale_colour_hue(c=45, l=80)
+    p <- p + labs(title='Cells Selected')
+    p <- p + theme(legend.title = element_text(, colour='blue'), legend.position='right', plot.title=element_blank())
+    p <- p + scale_colour_manual(values=c(usecolors[1:length(finalep)-1], 'white'))
+    
+    #return(list(df, p))
+    return(p)
+}
+
+# 112117
+selMaxEP_vExt <- function(ep.df, epvect) {
+    ## returns a data.frame of single column of EPs with max score in cell
+    ## ep.df: acep.df
+    ## epvect: list of EPs, ... arguments of ggplotMultEPOnSIMLRclusters
+    z <- as.data.frame(ep.df[epvect])
+        
+    if (ncol(z) == 1) {
+        res <- z[[1]]
+        res <- ifelse(res == 0.0, 'None', epvect[1])
+        names(res) <- rownames(z)
+        res <- as.data.frame(res)
+    } else {
+        res <- apply(z, 1, function(x, ev) {
+            a <- max(x)
+            sel <- ev[which(a == x)]
+            if (length(sel) == length(ev)) sel <- 'None'
+            return(sel)
+        }, epvect)
+        res <- as.data.frame(unlist(res))
+    }
+    colnames(res) <- 'maxEP'
+    
+    return(res)
+}
+
+# D112117
+ggboxplotOverCells <- function(epdf, sceset, ens) {
+    # epdf: first list element returned from ggplotMultEPonSIMLRclusters(), with maxEP column
+    # set: lset
+    # ens: ensembl id
+    usecolors <- c('#00BFFF', 'orange', 'yellow', 'purple', '#2E8B57', '#DC143C')
+    usecolors <- c(usecolors, '#FF00FF', '#6A5ACD', '#87CEFA', '#00FFFF', '#7FFFD4', '#F5F5DC', '#DAA520', '#DEB887', '#8B4513',
+                   '#FF7F50', '#800000', '#000000')
+    
+    eps <- unique(epdf$maxEP)
+    eps <- eps[!grepl('None', eps)]
+
+    xlst <- sapply(eps, function(x, df, set) {
+        y <- rownames(df[df$maxEP==x,, drop=FALSE])
+        newset <- set[, sampleNames(set) %in% y]
+        adf <- exprs(newset)
+        e <- adf[grepl(ens, rownames(adf)),]
+        names(e) <- rep(x, length(e))
+        return(e)
+    }, epdf, sceset, simplify=FALSE)
+
+    xlst <- lapply(xlst, function(x) data.frame(x, names(x)))
+    g.df <- do.call(rbind, xlst)
+    colnames(g.df) <- c('Expression', 'EP')
+    g.df <- g.df[order(g.df$EP, decreasing=TRUE), ]
+    p <- ggplot(g.df, aes(EP, Expression)) + geom_boxplot(fill=c(usecolors[1:length(eps)]))
+    
+    return(p)
+}
+
+#p <- ggboxplotOverCells(z.lst[[1]], lset, 'ENSG00000000419.8')
+
+
+@ 
+
+<<label=hashes, echo=FALSE, eval=FALSE>>=
+ensGenesWithSym.df <- read.table('biomartExport_ens2sym.csv', header=TRUE, sep='\t', quote='')
+
+sym2ens <- new.env(hash=TRUE)
+apply(ensGenesWithSym.df, 1, function(x) sym2ens[[x[4]]] <- x[1])
+save(sym2ens, file='sym2ens.rdat')
+
+ensemblid2sym <- new.env(hash=TRUE)
+apply(ensGenesWithSym.df, 1, function(x) ensemblid2sym[[x[1]]] <- x[4])
+save(ensemblid2sym, file='ensemblid2sym.rdat')
+
+@ 
+
+<<label=loadtoSCESet, echo=FALSE, eval=FALSE>>=
+require(monocle)
+load('pancreas_human_3.RData')
+nset <- fromCellDataSet(panc_cds, exprs_values='exprs', logged=TRUE)
+nset <- nset[, !grepl('hESCs', nset$stage)]
+
+# D100217 make lset
+load('pancreas_human_3norm.RData')
+# normalized but not log
+nlset <- fromCellDataSet(norm_panc_cds, exprs_values='exprs', logged=TRUE)
+nlset <- nlset[, !grepl('hESC', nlset$stage)]
+# normalized and log
+lset <- fromCellDataSet(norm_panc_cds, exprs_values='exprs', logged=FALSE)
+lset <- lset[, !grepl('hESC', lset$stage)]
+
+@ 
+
+<<label=loadrdat, echo=FALSE, eval=TRUE>>=
+load('nset.rdat')
+load('nlset.rdat')
+load('lset.rdat')
+
+load('nsetH10c.simlr.rdat')
+load('nsetH.rdat')
+
+load('ensemblid2sym.rdat')
+load('sym2name.rdat')
+load('sym2ens.rdat')
+
+load('acep.df.rdat')
+@ 
+
+<<label=template, echo=FALSE, eval=FALSE>>=
+## with nset
+y.df <- mergeScoresAndGeneExpr(10, nset, 'vim')
+
+## with lset
+y.df <- mergeScoresAndGeneExpr(10, lset, 'VIM')
+#p <- ggplotGenesOnCells(y.df, 'VIM', 10)
+#print(p)
+
+g <- colnames(y.df)[5:dim(y.df)[2]]
+if (TRUE) {
+    for (gene in g) {
+        p <- ggplotGenesOnCells(y.df, gene, 10)
+        filename <- paste(gene, 'mappedOnSclust', 10, '.pdf', sep='')
+        #pdf(paste('Plots', filename, sep='/'))
+        plot(p)
+        #dev.off()
+    }
+}
+
+@ 
+
+\end{document}
