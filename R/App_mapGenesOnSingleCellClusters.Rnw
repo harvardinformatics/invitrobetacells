@@ -13,7 +13,8 @@ require(SIMLR)
 require(igraph)
 require(reshape)
 
-@ 
+
+@
 <<label=functions, echo=FALSE, eval=TRUE>>=
 getScores <- function(nc, set) { # nset --> lset
     # nc: part of name of simlr obj: for nsetn136c.simlr, use 'n136'
@@ -28,7 +29,7 @@ getScores <- function(nc, set) { # nset --> lset
     rownames(x.df) <- sampleNames(set)
     colnames(x.df) <- c('Comp1', 'Comp2')
     x.df <- data.frame(x.df, stage=set$stage)
-    
+
     return(x.df)
 }
 
@@ -50,7 +51,7 @@ ggplotStagesOnSIMLRclusters <- function(obj, set) {
     p <- p + theme(legend.title = element_text(, colour='blue'), legend.position='right', plot.title=element_blank())
     p <- p + scale_colour_manual(values=c('#00BFFF', 'orange', 'yellow', 'purple', 'purple', '#2E8B57', '#2E8B57', '#DC143C', '#DC143C','#DC143C'))
     p <- p + scale_shape_manual(values=c(rep(16, 3), 16, 2, 16, 2, 16, 2, 4))
-    
+
     return(p)
 }
 
@@ -68,7 +69,7 @@ getGeneExpr <- function(df, set, gns) {
     #df <- as.data.frame(t(exprs(nset[grep(ens, featureNames(nset)), ])))
     df <- as.data.frame(t(exprs(set[grep(ens, featureNames(set)), ])))
     colnames(df) <- gns
-    
+
     return(df)
 }
 
@@ -80,8 +81,8 @@ mergeScoresAndGeneExpr <- function(cnum, set, gns) {
     # gns: single gene symbol
     a.df <- getScores(cnum, nsetH) # from nsetH7.simlr, nsetH8.simlr etc
     aa.df <- namerows(a.df, 'Samplenames')
-    
-    testing <- FALSE # using ensembl ids    
+
+    testing <- FALSE # using ensembl ids
     if (testing) {
         df <- getGeneIdExpr(aa.df, set, gns)
         cnms <- colnames(df)
@@ -92,11 +93,11 @@ mergeScoresAndGeneExpr <- function(cnum, set, gns) {
         colnames(df) <- sym
     } else {
         gns <- toupper(gns)
-        df <- getGeneExpr(aa.df, set, gns)    
+        df <- getGeneExpr(aa.df, set, gns)
     }
     df <- namerows(df, 'Samplenames')
     mdf <- merge(aa.df, df, by='Samplenames')
-    
+
     return(mdf)
 }
 
@@ -105,7 +106,7 @@ ggplotGenesOnCells_v0 <- function(df, gene, cn) { # 414, same 664 with diff titl
     # cn cluster number: 7, 8, 9 etc
     gx <- which(colnames(df) == gene)
     val <- quantile(df[, gx], 0.99)
-    
+
     xdf <- df[, c('Comp1', 'Comp2', gene)]
     gn <- sub('-|\\.', '', colnames(xdf)[3])
     colnames(xdf)[3] <- gn
@@ -126,7 +127,7 @@ ggplotGenesOnCells <- function(df, gene, cn, title) { # 414, same 664 with diff 
 
     gx <- which(colnames(df) == gene)
     val <- quantile(df[, gx], 0.99)
-    
+
     xdf <- df[, c('Comp1', 'Comp2', gene)]
     gn <- sub('-|\\.', '', colnames(xdf)[3])
     colnames(xdf)[3] <- gn
@@ -148,7 +149,7 @@ getScores_VclustB <- function(set, sobj) { # nset --> lset
     rownames(x.df) <- sampleNames(set)
     colnames(x.df) <- c('Comp1', 'Comp2')
     x.df <- data.frame(x.df, stage=set$stage)
-    
+
     return(x.df)
 }
 
@@ -158,7 +159,7 @@ getEPscores <- function(usg, ep) {
     idx <- grep(paste0('_', ep, '$'), colnames(usg))
     df <- usg[, idx, drop=FALSE]
     df <- namerows(df, 'Samplenames')
-    
+
     return(df)
 }
 
@@ -168,12 +169,12 @@ mergeScoresAndGeneExpr_vEP <- function(set, obj, usg, ep) {
     # usg: EP usage, data.frame acep.df
     a.df <- getScores_VclustB(set, obj) # nsetH is default to get the old clusters!!
     aa.df <- namerows(a.df, 'Samplenames')
-    
-    df <- getEPscores(usg, ep)    
+
+    df <- getEPscores(usg, ep)
     df <- namerows(df, 'Samplenames')
 
     mdf <- merge(aa.df, df, by='Samplenames')
-    
+
     return(mdf)
 }
 
@@ -181,11 +182,11 @@ ggplotGenesOnCells_v0EP<- function(df, gene, cn) { # 414, same 664 with diff tit
     # cn cluster number: 7, 8, 9 etc
     gx <- which(colnames(df) == gene)
     val <- quantile(df[, gx], 0.99)
-    
+
     xdf <- df[, c('Comp1', 'Comp2', gene)]
     gn <- sub('-|\\.', '', colnames(xdf)[3])
     colnames(xdf)[3] <- gn
-    
+
     p <- ggplot(df, aes(Comp1, Comp2))
     #p <- p + geom_point(aes(colour=PAX6, size=stage), stat='identity', position='identity', size=0.8, alpha=0.5)
     #p <- p + geom_point(aes_string(colour=gene), size=0.9, alpha=1) + scale_colour_gradient(low = "grey70", high = "red", name='FPKM')
@@ -194,7 +195,7 @@ ggplotGenesOnCells_v0EP<- function(df, gene, cn) { # 414, same 664 with diff tit
     p <- p + labs(title=paste(gene, 'On', cn, 'Clusters'))
     #p <- p + theme(legend.title = element_blank(), legend.position='right', plot.title=element_text(hjust=0.5))
     p <- p + theme(legend.title=element_text(colour='blue', size=9), legend.position='right', plot.title=element_text(hjust=0.5))
-    
+
     return(p)
 }
 
@@ -202,11 +203,11 @@ ggplotGenesOnCells_vEP<- function(df, gene, cn, pointsize=3) { # 414, same 664 w
     # cn cluster number: 7, 8, 9 etc
     gx <- which(colnames(df) == gene)
     val <- quantile(df[, gx], 0.99)
-    
+
     xdf <- df[, c('Comp1', 'Comp2', gene)]
     gn <- sub('-|\\.', '', colnames(xdf)[3])
     colnames(xdf)[3] <- gn
-    
+
     p <- ggplot(df, aes(Comp1, Comp2))
     #p <- p + geom_point(aes(colour=PAX6, size=stage), stat='identity', position='identity', size=0.8, alpha=0.5)
     #p <- p + geom_point(aes_string(colour=gene), size=0.9, alpha=1) + scale_colour_gradient(low = "grey70", high = "red", name='FPKM')
@@ -215,7 +216,7 @@ ggplotGenesOnCells_vEP<- function(df, gene, cn, pointsize=3) { # 414, same 664 w
     p <- p + labs(title=paste(gene, 'On', cn, 'Clusters'))
     #p <- p + theme(legend.title = element_blank(), legend.position='right', plot.title=element_text(hjust=0.5))
     p <- p + theme(legend.title=element_text(colour='blue', size=9), legend.position='right', plot.title=element_text(hjust=0.5))
-    
+
     return(p)
 }
 
@@ -230,7 +231,7 @@ ggplotMultEPonSIMLRclusters <- function(set, obj, ep.df, pointsize, ...) {
         # returns a data.frame of single column of EPs with max score in cell
         # epvect: list of EPs, ... arguments of ggplotMultEPOnSIMLRclusters
         z <- as.data.frame(ep.df[epvect])
-        
+
         if (ncol(z) == 1) {
             res <- z[[1]]
             res <- ifelse(res == 0.0, 'None', epvect[1])
@@ -246,7 +247,7 @@ ggplotMultEPonSIMLRclusters <- function(set, obj, ep.df, pointsize, ...) {
             res <- as.data.frame(unlist(res))
         }
         colnames(res) <- 'maxEP'
-        
+
         return(res)
     }
     getScores <- function(set, sobj) { # nset --> lset
@@ -255,7 +256,7 @@ ggplotMultEPonSIMLRclusters <- function(set, obj, ep.df, pointsize, ...) {
         x.df <- as.data.frame(sobj$ydata)
         rownames(x.df) <- sampleNames(set)
         colnames(x.df) <- c('Comp1', 'Comp2')
-    
+
         return(x.df)
     }
     mergeWithEPs <- function(set, sobj, edf) {
@@ -266,7 +267,7 @@ ggplotMultEPonSIMLRclusters <- function(set, obj, ep.df, pointsize, ...) {
         adf <- namerows(adf, 'Samplenames')
         bdf <- namerows(edf, 'Samplenames')
         mres <- merge(adf, bdf, by='Samplenames')
-    
+
         return(mres)
     }
     usecolors <- c('#00BFFF', 'orange', 'yellow', 'purple', '#2E8B57', '#DC143C')
@@ -279,14 +280,14 @@ ggplotMultEPonSIMLRclusters <- function(set, obj, ep.df, pointsize, ...) {
     df <- selMaxEp(ep)
     finalep <- unique(df$maxEP)
     mdf <- mergeWithEPs(set, obj, df)
-         
+
     p <- ggplot(mdf, aes(Comp1, Comp2)) + geom_point(aes(colour=maxEP), size=pointsize)
     #p <- p + guides(colour=guide_legend(override.aes=list(size=3)))
     p <- p + scale_colour_hue(c=45, l=80)
     p <- p + labs(title='Cells Selected')
     p <- p + theme(legend.title = element_text(, colour='blue'), legend.position='right', plot.title=element_blank())
     p <- p + scale_colour_manual(values=c(usecolors[1:length(finalep)-1], 'white'))
-    
+
     #return(list(df, p))
     return(p)
 }
@@ -297,7 +298,7 @@ selMaxEP_vExt <- function(ep.df, epvect) {
     ## ep.df: acep.df
     ## epvect: list of EPs, ... arguments of ggplotMultEPOnSIMLRclusters
     z <- as.data.frame(ep.df[epvect])
-        
+
     if (ncol(z) == 1) {
         res <- z[[1]]
         res <- ifelse(res == 0.0, 'None', epvect[1])
@@ -313,7 +314,7 @@ selMaxEP_vExt <- function(ep.df, epvect) {
         res <- as.data.frame(unlist(res))
     }
     colnames(res) <- 'maxEP'
-    
+
     return(res)
 }
 
@@ -325,7 +326,7 @@ ggboxplotOverCells <- function(epdf, sceset, ens) {
     usecolors <- c('#00BFFF', 'orange', 'yellow', 'purple', '#2E8B57', '#DC143C')
     usecolors <- c(usecolors, '#FF00FF', '#6A5ACD', '#87CEFA', '#00FFFF', '#7FFFD4', '#F5F5DC', '#DAA520', '#DEB887', '#8B4513',
                    '#FF7F50', '#800000', '#000000')
-    
+
     eps <- unique(epdf$maxEP)
     eps <- eps[!grepl('None', eps)]
 
@@ -343,14 +344,14 @@ ggboxplotOverCells <- function(epdf, sceset, ens) {
     colnames(g.df) <- c('Expression', 'EP')
     g.df <- g.df[order(g.df$EP, decreasing=TRUE), ]
     p <- ggplot(g.df, aes(EP, Expression)) + geom_boxplot(fill=c(usecolors[1:length(eps)]))
-    
+
     return(p)
 }
 
 #p <- ggboxplotOverCells(z.lst[[1]], lset, 'ENSG00000000419.8')
 
 
-@ 
+@
 
 <<label=hashes, echo=FALSE, eval=FALSE>>=
 ensGenesWithSym.df <- read.table('biomartExport_ens2sym.csv', header=TRUE, sep='\t', quote='')
@@ -363,16 +364,16 @@ ensemblid2sym <- new.env(hash=TRUE)
 apply(ensGenesWithSym.df, 1, function(x) ensemblid2sym[[x[1]]] <- x[4])
 save(ensemblid2sym, file='ensemblid2sym.rdat')
 
-@ 
+@
 
 <<label=loadtoSCESet, echo=FALSE, eval=FALSE>>=
 require(monocle)
-load('pancreas_human_3.RData')
+load(file.path('data', 'pancreas_human_3.RData'))
 nset <- fromCellDataSet(panc_cds, exprs_values='exprs', logged=TRUE)
 nset <- nset[, !grepl('hESCs', nset$stage)]
 
 # D100217 make lset
-load('pancreas_human_3norm.RData')
+load(file.path('data', 'pancreas_human_3norm.RData'))
 # normalized but not log
 nlset <- fromCellDataSet(norm_panc_cds, exprs_values='exprs', logged=TRUE)
 nlset <- nlset[, !grepl('hESC', nlset$stage)]
@@ -380,22 +381,22 @@ nlset <- nlset[, !grepl('hESC', nlset$stage)]
 lset <- fromCellDataSet(norm_panc_cds, exprs_values='exprs', logged=FALSE)
 lset <- lset[, !grepl('hESC', lset$stage)]
 
-@ 
+@
 
 <<label=loadrdat, echo=FALSE, eval=TRUE>>=
-load('nset.rdat')
-load('nlset.rdat')
-load('lset.rdat')
+load(file.path('data', 'nset.rdat'))
+load(file.path('data', 'nlset.rdat'))
+load(file.path('data', 'lset.rdat'))
 
-load('nsetH10c.simlr.rdat')
-load('nsetH.rdat')
+load(file.path('data', 'nsetH10c.simlr.rdat'))
+load(file.path('data', 'nsetH.rdat'))
 
-load('ensemblid2sym.rdat')
-load('sym2name.rdat')
-load('sym2ens.rdat')
+load(file.path('data', 'ensemblid2sym.rdat'))
+load(file.path('data', 'sym2name.rdat'))
+load(file.path('data', 'sym2ens.rdat'))
 
-load('acep.df.rdat')
-@ 
+load(file.path('data', 'acep.df.rdat'))
+@
 
 <<label=template, echo=FALSE, eval=FALSE>>=
 ## with nset
@@ -417,6 +418,6 @@ if (TRUE) {
     }
 }
 
-@ 
+@
 
 \end{document}
