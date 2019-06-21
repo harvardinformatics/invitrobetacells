@@ -4,7 +4,7 @@ Sweave('App_mapGenesOnSingleCellClusters.Rnw')
 
 ## UI
 ui <- fluidPage(
-    titlePanel(h3('Single Cell Analysis (Nadav - Project)'), windowTitle='SingleCell_MEP'),
+    titlePanel(h3('Single Cell Analysis (In vitro differentiation of hESCs into pancreatic endocrine cells, based on: Sharon et al., 2019, Cell Reports 27, 2281–2291 May 21, 2019 https://doi.org/10.1016/j.celrep.2019.04.083'), windowTitle='SingleCell_MEP'),
     sidebarLayout(
         sidebarPanel(
             conditionalPanel(
